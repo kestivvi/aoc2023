@@ -1,4 +1,5 @@
 use aoc2023::{read_input, InputType};
+use timed::timed;
 
 const DAY: u8 = 0;
 
@@ -9,10 +10,12 @@ fn main() {
     println!("Part2: {}", part2(&real_input));
 }
 
+#[timed]
 fn part1(input: &str) -> String {
     todo!()
 }
 
+#[timed]
 fn part2(input: &str) -> String {
     todo!()
 }
