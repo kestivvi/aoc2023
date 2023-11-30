@@ -6,6 +6,7 @@ use std::{
 pub enum InputType {
     Real,
     Test,
+    Other(String),
 }
 
 impl Display for InputType {
@@ -13,6 +14,7 @@ impl Display for InputType {
         match self {
             InputType::Real => write!(f, "real"),
             InputType::Test => write!(f, "test"),
+            InputType::Other(other) => write!(f, "{}", other),
         }
     }
 }
