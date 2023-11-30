@@ -29,14 +29,14 @@ mod tests {
     }
 
     #[test]
-    fn test_part1() {
+    fn part1_test() {
         let expected = "";
         let result = part1(&get_test_input());
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_part2() {
+    fn part2_test() {
         let expected = "";
         let result = part2(&get_test_input());
         assert_eq!(result, expected);
