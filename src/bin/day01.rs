@@ -9,9 +9,11 @@ fn main() {
     let real_input = read_input(DAY, InputType::Real).unwrap();
 
     println!("Part1: {}", part1(&real_input));
-    println!("Part2: {}", part2(&real_input));
+    println!("Part2: {}", part2_v3(&real_input));
 }
 
+/////////////////////////////////////////
+// Part 1
 #[timed]
 fn part1(input: &str) -> u32 {
     input
@@ -26,6 +28,9 @@ fn part1(input: &str) -> u32 {
         })
         .sum()
 }
+
+/////////////////////////////////////////
+// Part 2 v1
 
 // fn replaceStrToDigits(input: &str) -> String {
 //     let mut hello = hash_map! {
@@ -50,43 +55,6 @@ fn part1(input: &str) -> u32 {
 //     }
 //     "".to_owned()
 // }
-
-fn convert1(line: &str, current_index: usize, str_num: &str, real_num: u32) -> Option<u32> {
-    if ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-        .contains(&line.chars().nth(current_index).unwrap())
-    {
-        return line.chars().nth(current_index).unwrap().to_digit(10);
-    }
-
-    if let Some(index) = line.split_at(current_index).1.find(str_num) {
-        // dbg!(index);
-        if index == 0 {
-            return Some(real_num);
-        }
-    }
-    None
-}
-
-fn convert2(line: &str, current_index: usize) -> Option<u32> {
-    // dbg!((line, current_index, line.chars().nth(current_index)));
-    // dbg!(
-    [
-        convert1(line, current_index, "one", 1),
-        convert1(line, current_index, "two", 2),
-        convert1(line, current_index, "three", 3),
-        convert1(line, current_index, "four", 4),
-        convert1(line, current_index, "five", 5),
-        convert1(line, current_index, "six", 6),
-        convert1(line, current_index, "seven", 7),
-        convert1(line, current_index, "eight", 8),
-        convert1(line, current_index, "nine", 9),
-    ]
-    // )
-    .iter()
-    .flatten()
-    .copied()
-    .next()
-}
 
 fn my_replace(line: &str, current_index: usize, str_num: &str, real_num: &str) -> String {
     if let Some(index) = line.find(str_num) {
@@ -139,6 +107,46 @@ fn part2_v1(input: &str) -> u32 {
         .sum()
 }
 
+/////////////////////////////////////////
+// Part 2 v2
+
+fn convert1(line: &str, current_index: usize, str_num: &str, real_num: u32) -> Option<u32> {
+    if ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        .contains(&line.chars().nth(current_index).unwrap())
+    {
+        return line.chars().nth(current_index).unwrap().to_digit(10);
+    }
+
+    if let Some(index) = line.split_at(current_index).1.find(str_num) {
+        // dbg!(index);
+        if index == 0 {
+            return Some(real_num);
+        }
+    }
+    None
+}
+
+fn convert2(line: &str, current_index: usize) -> Option<u32> {
+    // dbg!((line, current_index, line.chars().nth(current_index)));
+    // dbg!(
+    [
+        convert1(line, current_index, "one", 1),
+        convert1(line, current_index, "two", 2),
+        convert1(line, current_index, "three", 3),
+        convert1(line, current_index, "four", 4),
+        convert1(line, current_index, "five", 5),
+        convert1(line, current_index, "six", 6),
+        convert1(line, current_index, "seven", 7),
+        convert1(line, current_index, "eight", 8),
+        convert1(line, current_index, "nine", 9),
+    ]
+    // )
+    .iter()
+    .flatten()
+    .copied()
+    .next()
+}
+
 #[timed]
 fn part2_v2(input: &str) -> u32 {
     input
@@ -162,42 +170,31 @@ fn part2_v2(input: &str) -> u32 {
         .sum()
 }
 
-fn convert_to_digits(line: &str, current_index: usize) -> Option<u32> {
-    let foo = |from: &str, to: u32| -> Option<u32> {
-        let current_slice = line.split_at(current_index).1;
-        if let Some(found) = current_slice.find(&format!("{}", to)) {
-            if found == 0 {
-                return Some(to);
-            }
-        }
-        if let Some(index) = current_slice.find(from) {
-            if index == 0 {
-                return Some(to);
-            }
-        }
-        None
-    };
-    [
+/////////////////////////////////////////
+// Part 2 v3
+
+fn convert_to_digits(slice: &str) -> Option<u32> {
+    let words = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    ]
-    .iter()
-    .enumerate()
-    .map(|(i, v)| foo(v, (i + 1) as u32))
-    .flatten()
-    .next()
+    ];
+    words.iter().enumerate().find_map(|(i, &word)| {
+        if slice.starts_with(word) || slice.starts_with(&(i + 1).to_string()) {
+            Some((i + 1) as u32)
+        } else {
+            None
+        }
+    })
 }
 
 #[timed]
-fn part2(input: &str) -> u32 {
+fn part2_v3(input: &str) -> u32 {
     input
         .lines()
         .flat_map(|line| {
             let digits = (0..line.len())
-                .map(|i| convert_to_digits(line, i))
-                .flatten()
+                .flat_map(|i| convert_to_digits(&line[i..]))
                 .collect_vec();
-            let number = format!("{}{}", digits.first().unwrap(), digits.last().unwrap());
-            number.parse::<u32>()
+            format!("{}{}", digits.first().unwrap(), digits.last().unwrap()).parse::<u32>()
         })
         .sum()
 }
@@ -224,7 +221,7 @@ mod tests {
     #[test]
     fn part2_test() {
         let expected = 281;
-        let result = part2(&get_test_input2());
+        let result = part2_v3(&get_test_input2());
         assert_eq!(result, expected);
     }
 
@@ -232,7 +229,7 @@ mod tests {
     fn part2_dp() {
         let expected = 54728;
         let input = read_input(DAY, InputType::Other("DP".to_owned())).unwrap();
-        let result = part2(&input);
+        let result = part2_v3(&input);
         assert_eq!(result, expected);
     }
 
@@ -240,7 +237,7 @@ mod tests {
     fn part2_mn() {
         let expected = 53389;
         let input = read_input(DAY, InputType::Other("MN".to_owned())).unwrap();
-        let result = part2(&input);
+        let result = part2_v3(&input);
         assert_eq!(result, expected);
     }
 
@@ -248,25 +245,25 @@ mod tests {
     fn part2_wj() {
         let expected = 54265;
         let input = read_input(DAY, InputType::Other("WJ".to_owned())).unwrap();
-        let result = part2(&input);
+        let result = part2_v3(&input);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_fancy_input() {
         let input = "sevenine";
-        assert_eq!(part2(&input), 79);
+        assert_eq!(part2_v3(&input), 79);
     }
 
     #[test]
     fn test_fancy2_input() {
         let input = "dkmmzhbvq3three6threeq";
-        assert_eq!(part2(&input), 33);
+        assert_eq!(part2_v3(&input), 33);
     }
 
     #[test]
     fn test_fancy3_input() {
         let input = "sbzvkxclj33zgfrqrv";
-        assert_eq!(part2(&input), 33);
+        assert_eq!(part2_v3(&input), 33);
     }
 }
