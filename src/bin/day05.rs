@@ -1,5 +1,6 @@
 use aoc2023::{read_input, InputType};
 use itertools::Itertools;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use timed::timed;
 
@@ -65,33 +66,10 @@ fn get_min_location(seeds: Vec<i64>, map_of_maps: HashMap<&str, Map>) -> i64 {
         .clone()
 }
 
-fn get_min_location2(seeds: impl Iterator<Item = i64>, map_of_maps: HashMap<&str, Map>) -> i64 {
-    seeds
-        .map(|seed| {
-            let soil = map_of_maps.get("seed-to-soil").unwrap().get(seed);
-            // dbg!(&soil);
-            let fertilizer = map_of_maps.get("soil-to-fertilizer").unwrap().get(soil);
-            let water = map_of_maps
-                .get("fertilizer-to-water")
-                .unwrap()
-                .get(fertilizer);
-            let light = map_of_maps.get("water-to-light").unwrap().get(water);
-            let temperature = map_of_maps.get("light-to-temperature").unwrap().get(light);
-            let humidity = map_of_maps
-                .get("temperature-to-humidity")
-                .unwrap()
-                .get(temperature);
-            let location = map_of_maps
-                .get("humidity-to-location")
-                .unwrap()
-                .get(humidity);
-            location
-            // location
-        })
-        .min()
-        .unwrap()
-        .clone()
-}
+// fn get_min_location2(seeds: impl Iterator<Item = i64>, map_of_maps: HashMap<&str, Map>) -> i64 {
+//     seeds
+
+// }
 
 fn get_map<'a>(categories: &'a [&'a str]) -> HashMap<&'a str, Map> {
     categories
@@ -157,8 +135,12 @@ fn part1(input: &str) -> i64 {
 #[timed]
 fn part2(input: &str) -> i64 {
     let v = input.split("\r\n\r\n").collect_vec();
-    let seeds = v
-        .first()
+
+    // dbg!(&seeds.size_hint());
+
+    let collect_vec = v.iter().skip(1).copied().collect_vec();
+    let map_of_maps = get_map(&collect_vec);
+    v.first()
         .unwrap()
         .split(":")
         .last()
@@ -167,13 +149,33 @@ fn part2(input: &str) -> i64 {
         .split_whitespace()
         .flat_map(|v| v.parse::<i64>())
         .tuples()
-        .flat_map(|(start, range)| (start..(start + range)).into_iter());
-
-    dbg!(&seeds);
-
-    let collect_vec = v.iter().skip(1).copied().collect_vec();
-    let map_of_maps = get_map(&collect_vec);
-    get_min_location2(seeds, map_of_maps)
+        .collect_vec()
+        .par_iter()
+        .flat_map(|(start, range)| (*start..(*start + *range)).into_iter())
+        .map(|seed| {
+            let soil = map_of_maps.get("seed-to-soil").unwrap().get(seed);
+            // dbg!(&soil);
+            let fertilizer = map_of_maps.get("soil-to-fertilizer").unwrap().get(soil);
+            let water = map_of_maps
+                .get("fertilizer-to-water")
+                .unwrap()
+                .get(fertilizer);
+            let light = map_of_maps.get("water-to-light").unwrap().get(water);
+            let temperature = map_of_maps.get("light-to-temperature").unwrap().get(light);
+            let humidity = map_of_maps
+                .get("temperature-to-humidity")
+                .unwrap()
+                .get(temperature);
+            let location = map_of_maps
+                .get("humidity-to-location")
+                .unwrap()
+                .get(humidity);
+            location
+            // location
+        })
+        .min()
+        .unwrap()
+        .clone()
 }
 
 #[cfg(test)]
