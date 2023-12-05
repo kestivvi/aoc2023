@@ -201,9 +201,30 @@ mod tests {
     }
 
     #[test]
+    fn part1_wj() {
+        let expected = 31599214;
+        let result = part1(&read_input(DAY, InputType::Other("WJ".to_string())).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn part2_test() {
         let expected = 46;
         let result = part2(&get_test_input());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn part2_real() {
+        let expected = 125742456;
+        let result = part2(&read_input(DAY, InputType::Real).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn part2_wj() {
+        let expected = 20358599;
+        let result = part2(&read_input(DAY, InputType::Other("WJ".to_string())).unwrap());
         assert_eq!(result, expected);
     }
 }
