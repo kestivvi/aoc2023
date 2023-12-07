@@ -1,6 +1,8 @@
 use aoc2023::{read_input, InputType};
 use counter::Counter;
 use itertools::Itertools;
+use strum::*;
+use strum_macros::EnumIter;
 use timed::timed;
 
 const DAY: u8 = 7;
@@ -11,59 +13,21 @@ fn main() {
     println!("Part2: {}", part2(&real_input));
 }
 
-#[derive(Debug, PartialEq, Hash, Eq, Clone)]
+#[derive(Debug, PartialEq, Hash, Eq, Clone, PartialOrd, Ord, EnumIter)]
 enum Card {
-    A,
-    K,
-    Q,
     J,
-    T,
-    N9,
-    N8,
-    N7,
-    N6,
-    N5,
-    N4,
-    N3,
     N2,
-}
-
-impl Card {
-    fn get_strength(&self) -> u8 {
-        match self {
-            Card::A => 13,
-            Card::K => 12,
-            Card::Q => 11,
-            Card::J => 0,
-            Card::T => 10,
-            Card::N9 => 9,
-            Card::N8 => 8,
-            Card::N7 => 7,
-            Card::N6 => 6,
-            Card::N5 => 5,
-            Card::N4 => 4,
-            Card::N3 => 3,
-            Card::N2 => 2,
-        }
-    }
-
-    fn vec() -> Vec<Card> {
-        vec![
-            Card::A,
-            Card::K,
-            Card::Q,
-            Card::J,
-            Card::T,
-            Card::N9,
-            Card::N8,
-            Card::N7,
-            Card::N6,
-            Card::N5,
-            Card::N4,
-            Card::N3,
-            Card::N2,
-        ]
-    }
+    N3,
+    N4,
+    N5,
+    N6,
+    N7,
+    N8,
+    N9,
+    T,
+    Q,
+    K,
+    A,
 }
 
 impl TryFrom<char> for Card {
@@ -89,87 +53,56 @@ impl TryFrom<char> for Card {
     }
 }
 
-impl PartialOrd for Card {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.get_strength().cmp(&other.get_strength()))
-    }
-}
-
 #[derive(Debug, PartialEq)]
 struct Hand {
     cards: Vec<Card>,
     hand_type: HandType,
 }
 
-#[derive(Debug, PartialEq, Ord, Eq)]
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 enum HandType {
-    FiveOfKind,
-    FourOfKind,
-    FullHouse,
-    ThreeOfKind,
-    TwoPair,
-    OnePair,
     HighCard,
+    OnePair,
+    TwoPair,
+    ThreeOfKind,
+    FullHouse,
+    FourOfKind,
+    FiveOfKind,
 }
 
-impl HandType {
-    fn get_strength(&self) -> u8 {
-        match self {
-            HandType::FiveOfKind => 6,
-            HandType::FourOfKind => 5,
-            HandType::FullHouse => 4,
-            HandType::ThreeOfKind => 3,
-            HandType::TwoPair => 2,
-            HandType::OnePair => 1,
-            HandType::HighCard => 0,
-        }
-    }
-}
-
-impl TryFrom<&Vec<Card>> for HandType {
+impl TryFrom<&[Card]> for HandType {
     type Error = ();
 
-    fn try_from(cards: &Vec<Card>) -> Result<Self, Self::Error> {
-        let best_hand = Card::vec()
-            .iter()
+    fn try_from(cards: &[Card]) -> Result<Self, Self::Error> {
+        let best_hand = Card::iter()
             .map(|new_joker| {
-                let new_cards = replace_joker(cards, new_joker);
+                let new_cards = replace_joker(cards, &new_joker);
                 get_hand_type(&new_cards)
             })
-            .min()
+            .max()
             .ok_or(())?;
 
         Ok(best_hand)
     }
 }
 
-fn replace_joker(cards: &Vec<Card>, new_joker: &Card) -> Vec<Card> {
-    cards
-        .iter()
-        .map(|card| if let Card::J = card { new_joker } else { card })
-        .cloned()
-        .collect()
+fn replace_joker(cards: &[Card], new_joker: &Card) -> Vec<Card> {
+    cards.iter().map(|card| if let Card::J = card { new_joker } else { card }).cloned().collect()
 }
 
-fn get_hand_type(cards: &Vec<Card>) -> HandType {
+fn get_hand_type(cards: &[Card]) -> HandType {
     let counter = cards.iter().collect::<Counter<_>>();
     let values = counter.values().sorted().collect::<Vec<_>>();
 
-    match values.as_slice() {
-        &[5] => HandType::FiveOfKind,
-        &[1, 4] => HandType::FourOfKind,
-        &[1, 1, 3] => HandType::ThreeOfKind,
-        &[2, 3] => HandType::FullHouse,
-        &[1, 2, 2] => HandType::TwoPair,
-        &[1, 1, 1, 2] => HandType::OnePair,
-        &[1, 1, 1, 1, 1] => HandType::HighCard,
+    match *values.as_slice() {
+        [5] => HandType::FiveOfKind,
+        [1, 4] => HandType::FourOfKind,
+        [1, 1, 3] => HandType::ThreeOfKind,
+        [2, 3] => HandType::FullHouse,
+        [1, 2, 2] => HandType::TwoPair,
+        [1, 1, 1, 2] => HandType::OnePair,
+        [1, 1, 1, 1, 1] => HandType::HighCard,
         _ => HandType::HighCard,
-    }
-}
-
-impl PartialOrd for HandType {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.get_strength().cmp(&other.get_strength()))
     }
 }
 
@@ -182,12 +115,8 @@ impl TryFrom<&str> for Hand {
             return Err(());
         }
 
-        let cards = value
-            .chars()
-            .map(|char| char.try_into().unwrap())
-            .collect_vec();
-
-        let hand_type = (&cards).try_into().unwrap();
+        let cards = value.chars().flat_map(|char| char.try_into()).collect_vec();
+        let hand_type = cards.as_slice().try_into().unwrap();
 
         Ok(Hand { cards, hand_type })
     }
@@ -195,14 +124,14 @@ impl TryFrom<&str> for Hand {
 
 impl PartialOrd for Hand {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let type_ordering = self.hand_type.partial_cmp(&other.hand_type)?;
+        let type_ordering = self.hand_type.cmp(&other.hand_type);
 
         if type_ordering != std::cmp::Ordering::Equal {
             return Some(type_ordering);
         }
 
         for (card1, card2) in self.cards.iter().zip(other.cards.iter()) {
-            let card_ordering = card1.partial_cmp(card2)?;
+            let card_ordering = card1.cmp(card2);
 
             if card_ordering != std::cmp::Ordering::Equal {
                 return Some(card_ordering);
@@ -218,7 +147,7 @@ fn part2(input: &str) -> u64 {
     input
         .lines()
         .map(|line| {
-            let (hand_part, bid_part) = line.trim().split(" ").collect_tuple().unwrap();
+            let (hand_part, bid_part) = line.split_whitespace().collect_tuple().unwrap();
             let hand = Hand::try_from(hand_part).unwrap();
             let bid = bid_part.parse::<u64>().unwrap();
             (hand, bid)
@@ -253,6 +182,13 @@ mod tests {
     fn part2_test2() {
         let expected = 6839;
         let result = part2(&read_input(DAY, InputType::Other("test2".to_string())).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn part2_real() {
+        let expected = 253907829;
+        let result = part2(&read_input(DAY, InputType::Real).unwrap());
         assert_eq!(result, expected);
     }
 
