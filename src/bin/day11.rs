@@ -44,6 +44,13 @@ fn expand_rows(universe: &mut Vec<Vec<char>>, expand_rate: usize) {
     let mut counter = 0;
     rows_to_expand.iter().for_each(|&row_index| {
         let row_to_copy = universe[row_index + counter].clone();
+
+        let expand_rate = if expand_rate > 1 {
+            expand_rate - 1
+        } else {
+            expand_rate
+        };
+
         for _ in 0..expand_rate {
             universe.insert(row_index + counter, row_to_copy.clone());
             counter += 1;
