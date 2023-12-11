@@ -11,127 +11,170 @@ fn main() {
     println!("Part2: {}", part2(&real_input, 1_000_000));
 }
 
-fn print_universe(universe: &Vec<Vec<char>>) {
-    universe.iter().for_each(|line| {
-        line.iter().for_each(|c| print!("{c}"));
-        println!();
-    })
-}
+struct Universe(Vec<Vec<Tile>>);
 
-// https://stackoverflow.com/questions/64498617/how-to-transpose-a-vector-of-vectors-in-rust
-fn transpose2<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
-    assert!(!v.is_empty());
-    let len = v[0].len();
-    let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
-    (0..len)
-        .map(|_| {
-            iters
-                .iter_mut()
-                .map(|n| n.next().unwrap())
-                .collect::<Vec<T>>()
-        })
-        .collect()
-}
+impl Universe {
+    fn new(input: &str) -> Self {
+        let universe_vec = input
+            .lines()
+            .map(|line| {
+                line.chars()
+                    .map(|c| Tile {
+                        object: c.try_into().unwrap(),
+                        vertical_cost: 1,
+                        horizontal_cost: 1,
+                    })
+                    .collect_vec()
+            })
+            .collect_vec();
 
-fn expand_rows(universe: &mut Vec<Vec<char>>, expand_rate: usize) {
-    let rows_to_expand = universe
-        .iter()
-        .enumerate()
-        .filter(|(_, line)| line.iter().all(|c| *c == '.'))
-        .map(|(i, _)| i)
-        .collect_vec();
-
-    let mut counter = 0;
-    rows_to_expand.iter().for_each(|&row_index| {
-        let row_to_copy = universe[row_index + counter].clone();
-
-        let expand_rate = if expand_rate > 1 {
-            expand_rate - 1
-        } else {
-            expand_rate
-        };
-
-        for _ in 0..expand_rate {
-            universe.insert(row_index + counter, row_to_copy.clone());
-            counter += 1;
-        }
-    });
-}
-
-fn expand_universe(input: &str, expand_rate: usize) -> Vec<Vec<char>> {
-    let mut universe = input
-        .lines()
-        .map(|line| line.chars().collect_vec())
-        .collect_vec();
-
-    // println!("Raw");
-    // print_universe(&universe);
-
-    expand_rows(&mut universe, expand_rate);
-
-    // println!("Expanded rows");
-    // print_universe(&universe);
-
-    let mut universe = transpose2(universe);
-    // println!("Transposed");
-    // print_universe(&universe);
-
-    expand_rows(&mut universe, expand_rate);
-    // println!("Expanded rows");
-    // print_universe(&universe);
-
-    let final_universe = transpose2(universe);
-
-    // println!("Transposed again");
-    // print_universe(&final_universe);
-    final_universe
-}
-
-fn find_galaxies(universe: &Vec<Vec<char>>) -> Vec<(usize, usize)> {
-    let mut galaxies = Vec::new();
-    let galaxy_char = '#';
-
-    for (y, line) in universe.iter().enumerate() {
-        for (x, &char) in line.iter().enumerate() {
-            if char == galaxy_char {
-                galaxies.push((y, x));
-            }
-        }
+        Self(universe_vec)
     }
 
-    galaxies
+    fn expand(&mut self, expand_rate: u64) {
+        self.0
+            .iter_mut()
+            .filter(|line| line.iter().all(|tile| tile.object == Object::Space))
+            .for_each(|line| {
+                line.iter_mut()
+                    .for_each(|tile| tile.vertical_cost *= expand_rate)
+            });
+
+        let rows = self.0.len();
+        let columns = self.0[0].len();
+
+        let mut transposed_universe = (0..columns)
+            .map(|column| {
+                (0..rows)
+                    .map(|row| self.0[row][column].clone())
+                    .collect_vec()
+            })
+            .collect_vec();
+
+        transposed_universe
+            .iter_mut()
+            .filter(|line| line.iter().all(|tile| tile.object == Object::Space))
+            .for_each(|line| {
+                line.iter_mut()
+                    .for_each(|tile| tile.horizontal_cost *= expand_rate)
+            });
+
+        let final_universe = (0..columns)
+            .map(|column| {
+                (0..rows)
+                    .map(|row| transposed_universe[row][column].clone())
+                    .collect_vec()
+            })
+            .collect_vec();
+
+        self.0 = final_universe;
+    }
+
+    fn path_from_to(&self, start: (usize, usize), end: (usize, usize)) -> u64 {
+        let mut counter = 0;
+        let mut current = start;
+
+        while current != end {
+            match current.0 as i64 - end.0 as i64 {
+                x if x > 0 => {
+                    counter += self.0[current.0][current.1].vertical_cost;
+                    current.0 -= 1;
+                }
+                x if x < 0 => {
+                    counter += self.0[current.0][current.1].vertical_cost;
+                    current.0 += 1;
+                }
+                _ => (),
+            }
+
+            match current.1 as i64 - end.1 as i64 {
+                x if x > 0 => {
+                    counter += self.0[current.1][current.1].horizontal_cost;
+                    current.1 -= 1;
+                }
+                x if x < 0 => {
+                    counter += self.0[current.1][current.1].horizontal_cost;
+                    current.1 += 1;
+                }
+                _ => (),
+            }
+        }
+
+        counter
+    }
+
+    fn find_galaxies(&self) -> Vec<(usize, usize)> {
+        let mut galaxies = Vec::new();
+
+        for (y, line) in self.0.iter().enumerate() {
+            for (x, &ref tile) in line.iter().enumerate() {
+                if tile.object == Object::Galaxy {
+                    galaxies.push((y, x));
+                }
+            }
+        }
+
+        galaxies
+    }
+}
+
+#[derive(Clone)]
+struct Tile {
+    object: Object,
+    vertical_cost: u64,
+    horizontal_cost: u64,
+}
+
+#[derive(PartialEq, Clone)]
+enum Object {
+    Space,
+    Galaxy,
+}
+
+impl TryFrom<char> for Object {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            '#' => Ok(Self::Galaxy),
+            '.' => Ok(Self::Space),
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[timed]
 fn part1(input: &str) -> u64 {
-    let universe = expand_universe(input, 1);
-    let galaxies = find_galaxies(&universe);
+    let mut universe = Universe::new(input);
+    universe.expand(2);
 
-    galaxies
+    universe
+        .find_galaxies()
         .iter()
         .combinations(2)
         .map(|galaxies| {
             let g1 = galaxies[0];
             let g2 = galaxies[1];
 
-            (g1.0.abs_diff(g2.0) + g1.1.abs_diff(g2.1)) as u64
+            universe.path_from_to(*g1, *g2)
         })
         .sum::<u64>()
 }
 
 #[timed]
 fn part2(input: &str, expand_rate: usize) -> u64 {
-    let universe = expand_universe(input, expand_rate);
-    let galaxies = find_galaxies(&universe);
+    let mut universe = Universe::new(input);
+    universe.expand(expand_rate.try_into().unwrap());
 
-    galaxies
+    universe
+        .find_galaxies()
         .iter()
         .combinations(2)
         .map(|galaxies| {
             let g1 = galaxies[0];
             let g2 = galaxies[1];
 
-            (g1.0.abs_diff(g2.0) + g1.1.abs_diff(g2.1)) as u64
+            universe.path_from_to(*g1, *g2)
         })
         .sum::<u64>()
 }
