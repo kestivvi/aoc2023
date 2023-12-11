@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use aoc2023::{read_input, InputType};
 use itertools::Itertools;
-use num::CheckedSub;
+use num::{complex::ComplexFloat, CheckedSub};
 use timed::timed;
 
 const DAY: u8 = 10;
@@ -202,34 +202,34 @@ fn part1(input: &str) -> u64 {
     (positions.len() / 2) as u64
 }
 
-fn area_dfs(grid: &Vec<Vec<Tile>>, y: usize, x: usize, visited: &mut HashSet<(usize, usize)>) {
-    if visited.contains(&(y, x)) {
-        return;
-    }
+// fn area_dfs(grid: &Vec<Vec<Tile>>, y: usize, x: usize, visited: &mut HashSet<(usize, usize)>) {
+//     if visited.contains(&(y, x)) {
+//         return;
+//     }
 
-    if let Tile::Pipe(_) = grid[y][x] {
-        return;
-    }
+//     if let Tile::Pipe(_) = grid[y][x] {
+//         return;
+//     }
 
-    visited.insert((y, x));
-    y.checked_sub(1).and_then(|y| {
-        area_dfs(grid, y, x, visited);
-        Some(())
-    });
+//     visited.insert((y, x));
+//     y.checked_sub(1).and_then(|y| {
+//         area_dfs(grid, y, x, visited);
+//         Some(())
+//     });
 
-    if y + 1 < grid.len() {
-        area_dfs(grid, y + 1, x, visited);
-    }
+//     if y + 1 < grid.len() {
+//         area_dfs(grid, y + 1, x, visited);
+//     }
 
-    x.checked_sub(1).and_then(|x| {
-        area_dfs(grid, y, x, visited);
-        Some(())
-    });
+//     x.checked_sub(1).and_then(|x| {
+//         area_dfs(grid, y, x, visited);
+//         Some(())
+//     });
 
-    if x + 1 < grid[y].len() {
-        area_dfs(grid, y, x + 1, visited);
-    }
-}
+//     if x + 1 < grid[y].len() {
+//         area_dfs(grid, y, x + 1, visited);
+//     }
+// }
 
 // #[timed]
 // fn part2(input: &str) -> u64 {
@@ -313,28 +313,27 @@ fn part2(input: &str) -> u64 {
 
     for y in 0..grid.len() {
         for x in 0..grid[y].len() {
-            if let Tile::Pipe(_) = grid[y][x] {
-                if y.checked_sub(1).is_some() {
-                    if let Tile::Pipe(_) = grid[y - 1][x] {
-                        let step = positions
-                    }
+            let loop_tile = positions.iter().position(|v| *v == (y, x));
+
+            if let None = loop_tile {
+                if counter != 0 {
+                    area += 1;
                 }
                 continue;
             }
 
-            let visited = areas.iter().any(|area| area.contains(&(y, x)));
-            if visited {
-                continue;
-            }
+            let loop_tile_below = positions.iter().position(|v| *v == (y + 1, x));
 
-            let mut new_area = HashSet::new();
-            area_dfs(&grid, y, x, &mut new_area);
-
-            if new_area.len() != 0 {
-                areas.push(new_area);
+            if let (Some(loop_tile), Some(loop_tile_below)) = (loop_tile, loop_tile_below) {
+                let difference = loop_tile as i64 - loop_tile_below as i64;
+                if difference.abs() == 1 {
+                    counter += difference;
+                }
             }
         }
     }
+
+    area
 }
 
 #[cfg(test)]
@@ -415,6 +414,13 @@ mod tests {
     fn part2_test7() {
         let expected = 8;
         let result = part2(&read_input(DAY, InputType::Other("test7".to_owned())).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn part2_wj() {
+        let expected = 343;
+        let result = part2(&read_input(DAY, InputType::Other("wj".to_owned())).unwrap());
         assert_eq!(result, expected);
     }
 }
