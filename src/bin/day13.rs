@@ -66,14 +66,19 @@ impl Block {
         self.0[0].len()
     }
 
-    fn mirror_line_index(&self) -> Option<usize> {
+    fn mirror_line_index(&self, replacement: usize, exclude_line: Option<usize>) -> Option<usize> {
         // self.print();
         let mut best_line = None;
         let mut most_matches = None;
 
         for line in 0..self.get_height() {
+            if exclude_line.is_some_and(|e| e == line) {
+                continue;
+            }
             let mut current_matches = 0;
             let mut offset = 0;
+            let mut replaced_so_far = 0;
+
             loop {
                 let line_up_index = line.checked_sub(offset);
                 let line_up = if line_up_index.is_some() {
@@ -82,9 +87,20 @@ impl Block {
                     None
                 };
                 let line_down = self.0.get(line + offset + 1);
+
                 if let (Some(line_up), Some(line_down)) = (line_up, line_down) {
-                    if line_up != line_down {
-                        break;
+                    let differences = line_up
+                        .iter()
+                        .zip_eq(line_down.iter())
+                        .filter(|(a, b)| **a != **b)
+                        .count();
+
+                    if differences != 0 {
+                        if replaced_so_far + differences <= replacement {
+                            replaced_so_far += differences
+                        } else {
+                            break;
+                        }
                     }
                     current_matches += 1;
                 } else {
@@ -106,8 +122,12 @@ impl Block {
         best_line
     }
 
-    fn horizontal_mirror_line_index(&self) -> Option<usize> {
-        self.mirror_line_index()
+    fn horizontal_mirror_line_index(
+        &self,
+        replacement: usize,
+        exclude: Option<usize>,
+    ) -> Option<usize> {
+        self.mirror_line_index(replacement, exclude)
     }
 
     fn transposed(&self) -> Self {
@@ -122,8 +142,12 @@ impl Block {
         Self(transposed)
     }
 
-    fn vertical_mirror_line_index(&self) -> Option<usize> {
-        self.transposed().mirror_line_index()
+    fn vertical_mirror_line_index(
+        &self,
+        replacement: usize,
+        exclude: Option<usize>,
+    ) -> Option<usize> {
+        self.transposed().mirror_line_index(replacement, exclude)
     }
 
     fn print(&self) {
@@ -142,8 +166,8 @@ fn part1(input: &str) -> usize {
     blocks
         .iter()
         .map(|block| {
-            let horizontal = block.horizontal_mirror_line_index();
-            let vertical = block.vertical_mirror_line_index();
+            let horizontal = block.horizontal_mirror_line_index(0, None);
+            let vertical = block.vertical_mirror_line_index(0, None);
 
             if let Some(horizontal) = horizontal {
                 100 * (horizontal + 1)
@@ -157,8 +181,42 @@ fn part1(input: &str) -> usize {
 }
 
 #[timed]
-fn part2(input: &str) -> u64 {
-    todo!()
+fn part2(input: &str) -> usize {
+    let blocks = Block::from_input(input);
+
+    blocks
+        .iter()
+        .map(|block| {
+            let horizontal = block.horizontal_mirror_line_index(0, None);
+            let vertical = block.vertical_mirror_line_index(0, None);
+
+            if let Some(horizontal) = horizontal {
+                let horizontal_try = block.horizontal_mirror_line_index(1, Some(horizontal));
+                let vertical_try = block.vertical_mirror_line_index(1, None);
+
+                if let Some(horizontal_try) = horizontal_try {
+                    100 * (horizontal_try + 1)
+                } else if let Some(vertical_try) = vertical_try {
+                    vertical_try + 1
+                } else {
+                    0
+                }
+            } else if let Some(vertical) = vertical {
+                let horizontal_try = block.horizontal_mirror_line_index(1, None);
+                let vertical_try = block.vertical_mirror_line_index(1, Some(vertical));
+
+                if let Some(horizontal_try) = horizontal_try {
+                    100 * (horizontal_try + 1)
+                } else if let Some(vertical_try) = vertical_try {
+                    vertical_try + 1
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        })
+        .sum()
 }
 
 #[cfg(test)]
@@ -177,8 +235,15 @@ mod tests {
     }
 
     #[test]
+    fn part1_real() {
+        let expected = 36041;
+        let result = part1(&read_input(DAY, InputType::Real).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn part2_test() {
-        let expected = 0;
+        let expected = 400;
         let result = part2(&get_test_input());
         assert_eq!(result, expected);
     }
