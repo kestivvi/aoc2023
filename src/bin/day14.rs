@@ -237,6 +237,13 @@ mod tests {
     }
 
     #[test]
+    fn part1_real() {
+        let expected = 109661;
+        let result = part1(&read_input(DAY, InputType::Real).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn part2_test() {
         let expected = 64;
         let result = part2(&get_test_input());
