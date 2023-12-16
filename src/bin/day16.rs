@@ -23,53 +23,52 @@ impl LaserGrid {
         }
     }
 
-    fn dfs(
-        current_position: (usize, usize),
-        direction: (isize, isize),
-        grid: &Vec<Vec<char>>,
-        visited_positions: &mut HashSet<((usize, usize), (isize, isize))>,
-    ) {
-        if !visited_positions.insert((current_position, direction)) {
-            return;
-        }
-
-        let new_projected_position = (
-            current_position.0.checked_add_signed(direction.0),
-            current_position.1.checked_add_signed(direction.1),
-        );
-
-        let new_position = match new_projected_position {
-            (Some(new_y), Some(new_x)) if new_y < grid.len() && new_x < grid[new_y].len() => {
-                (new_y, new_x)
-            }
-            _ => return,
-        };
-
-        match grid[new_position.0][new_position.1] {
-            '.' => Self::dfs(new_position, direction, grid, visited_positions),
-            '/' => Self::dfs(new_position, (-direction.1, -direction.0), grid, visited_positions),
-            '\\' => Self::dfs(new_position, (direction.1, direction.0), grid, visited_positions),
-            '|' if direction.1 == 0 => Self::dfs(new_position, direction, grid, visited_positions),
-            '|' if direction.0 == 0 => {
-                Self::dfs(new_position, (1, 0), grid, visited_positions);
-                Self::dfs(new_position, (-1, 0), grid, visited_positions);
-            }
-            '-' if direction.1 == 0 => {
-                Self::dfs(new_position, (0, 1), grid, visited_positions);
-                Self::dfs(new_position, (0, -1), grid, visited_positions);
-            }
-            '-' if direction.0 == 0 => Self::dfs(new_position, direction, grid, visited_positions),
-            _ => unreachable!(),
-        }
-    }
-
     fn calculate_energized_positions_after_shot_from(
         &self,
         start_position: (usize, usize),
         start_direction: (isize, isize),
     ) -> HashSet<((usize, usize), (isize, isize))> {
         let mut visited_positions = HashSet::with_capacity(15000);
-        Self::dfs(start_position, start_direction, &self.grid, &mut visited_positions);
+        let mut stack = Vec::with_capacity(128);
+        stack.push((start_position, start_direction));
+
+        while let Some((current_position, direction)) = stack.pop() {
+            if !visited_positions.insert((current_position, direction)) {
+                continue;
+            }
+
+            let new_projected_position = (
+                current_position.0.checked_add_signed(direction.0),
+                current_position.1.checked_add_signed(direction.1),
+            );
+
+            let new_position = match new_projected_position {
+                (Some(new_y), Some(new_x))
+                    if new_y < self.grid.len() && new_x < self.grid[new_y].len() =>
+                {
+                    (new_y, new_x)
+                }
+                _ => continue,
+            };
+
+            match self.grid[new_position.0][new_position.1] {
+                '.' => stack.push((new_position, direction)),
+                '/' => stack.push((new_position, (-direction.1, -direction.0))),
+                '\\' => stack.push((new_position, (direction.1, direction.0))),
+                '|' if direction.1 == 0 => stack.push((new_position, direction)),
+                '|' if direction.0 == 0 => {
+                    stack.push((new_position, (1, 0)));
+                    stack.push((new_position, (-1, 0)));
+                }
+                '-' if direction.1 == 0 => {
+                    stack.push((new_position, (0, 1)));
+                    stack.push((new_position, (0, -1)));
+                }
+                '-' if direction.0 == 0 => stack.push((new_position, direction)),
+                _ => unreachable!(),
+            }
+        }
+
         visited_positions
     }
 
