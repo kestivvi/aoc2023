@@ -12,29 +12,31 @@ fn main() {
     println!("Part2: {}", part2(&real_input));
 }
 
-struct Grid {
+struct LaserGrid {
     grid: Vec<Vec<char>>,
 }
 
-impl Grid {
+impl LaserGrid {
     fn new_from_input(input: &str) -> Self {
-        let grid = input.trim().lines().map(|line| line.trim().chars().collect_vec()).collect_vec();
-        Self { grid }
+        Self {
+            grid: input.trim().lines().map(|line| line.trim().chars().collect_vec()).collect_vec(),
+        }
     }
 
     fn dfs(
-        position: (usize, usize),
-        vector: (isize, isize),
+        current_position: (usize, usize),
+        direction: (isize, isize),
         grid: &Vec<Vec<char>>,
-        energized: &mut HashSet<((usize, usize), (isize, isize))>,
+        visited_positions: &mut HashSet<((usize, usize), (isize, isize))>,
     ) {
-        if energized.contains(&(position, vector)) {
+        if !visited_positions.insert((current_position, direction)) {
             return;
         }
-        energized.insert((position, vector));
 
-        let new_projected_position =
-            (position.0.checked_add_signed(vector.0), position.1.checked_add_signed(vector.1));
+        let new_projected_position = (
+            current_position.0.checked_add_signed(direction.0),
+            current_position.1.checked_add_signed(direction.1),
+        );
 
         let new_position = match new_projected_position {
             (Some(new_y), Some(new_x)) if new_y < grid.len() && new_x < grid[new_y].len() => {
@@ -44,39 +46,39 @@ impl Grid {
         };
 
         match grid[new_position.0][new_position.1] {
-            '.' => Self::dfs(new_position, vector, grid, energized),
-            '/' => Self::dfs(new_position, (-vector.1, -vector.0), grid, energized),
-            '\\' => Self::dfs(new_position, (vector.1, vector.0), grid, energized),
-            '|' if vector.1 == 0 => Self::dfs(new_position, vector, grid, energized),
-            '|' if vector.0 == 0 => {
-                Self::dfs(new_position, (1, 0), grid, energized);
-                Self::dfs(new_position, (-1, 0), grid, energized);
+            '.' => Self::dfs(new_position, direction, grid, visited_positions),
+            '/' => Self::dfs(new_position, (-direction.1, -direction.0), grid, visited_positions),
+            '\\' => Self::dfs(new_position, (direction.1, direction.0), grid, visited_positions),
+            '|' if direction.1 == 0 => Self::dfs(new_position, direction, grid, visited_positions),
+            '|' if direction.0 == 0 => {
+                Self::dfs(new_position, (1, 0), grid, visited_positions);
+                Self::dfs(new_position, (-1, 0), grid, visited_positions);
             }
-            '-' if vector.1 == 0 => {
-                Self::dfs(new_position, (0, 1), grid, energized);
-                Self::dfs(new_position, (0, -1), grid, energized);
+            '-' if direction.1 == 0 => {
+                Self::dfs(new_position, (0, 1), grid, visited_positions);
+                Self::dfs(new_position, (0, -1), grid, visited_positions);
             }
-            '-' if vector.0 == 0 => Self::dfs(new_position, vector, grid, energized),
+            '-' if direction.0 == 0 => Self::dfs(new_position, direction, grid, visited_positions),
             _ => unreachable!(),
         }
     }
 
-    fn shot_from(
+    fn calculate_energized_positions_after_shot_from(
         &self,
-        position: (usize, usize),
-        vector: (isize, isize),
+        start_position: (usize, usize),
+        start_direction: (isize, isize),
     ) -> HashSet<((usize, usize), (isize, isize))> {
-        let mut energized = HashSet::with_capacity(15000);
-        Self::dfs(position, vector, &self.grid, &mut energized);
-        energized
+        let mut visited_positions = HashSet::with_capacity(15000);
+        Self::dfs(start_position, start_direction, &self.grid, &mut visited_positions);
+        visited_positions
     }
 
-    fn shoot_from_number_of_energized(
+    fn calculate_number_of_energized_positions(
         &self,
-        position: (usize, usize),
-        vector: (isize, isize),
+        start_position: (usize, usize),
+        start_direction: (isize, isize),
     ) -> usize {
-        self.shot_from(position, vector)
+        self.calculate_energized_positions_after_shot_from(start_position, start_direction)
             .iter()
             .map(|(position, _vector)| position)
             .sorted()
@@ -87,14 +89,14 @@ impl Grid {
 
 #[timed]
 fn part1(input: &str) -> usize {
-    Grid::new_from_input(input).shoot_from_number_of_energized((0, 0), (0, 1))
+    LaserGrid::new_from_input(input).calculate_number_of_energized_positions((0, 0), (0, 1))
 }
 
 #[timed]
 fn part2(input: &str) -> usize {
-    let grid = Grid::new_from_input(input);
-    let height = grid.grid.len();
-    let width = grid.grid[0].len();
+    let laser_grid = LaserGrid::new_from_input(input);
+    let height = laser_grid.grid.len();
+    let width = laser_grid.grid[0].len();
 
     let vertical_start_configurations =
         (0..height).flat_map(|start_y| [((start_y, 0), (0, 1)), ((start_y, width - 1), (0, -1))]);
@@ -105,7 +107,9 @@ fn part2(input: &str) -> usize {
     vertical_start_configurations
         .chain(horizontal_start_configurations)
         .par_bridge()
-        .map(|(position, vector)| grid.shoot_from_number_of_energized(position, vector))
+        .map(|(start_position, start_direction)| {
+            laser_grid.calculate_number_of_energized_positions(start_position, start_direction)
+        })
         .max()
         .unwrap()
 }
