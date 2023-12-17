@@ -23,6 +23,23 @@ impl LaserGrid {
         }
     }
 
+    fn get_next_step(
+        &self,
+        position: (usize, usize),
+        direction: (isize, isize),
+    ) -> Vec<((usize, usize), (isize, isize))> {
+        match self.grid[position.0][position.1] {
+            '.' => [(position, direction)].to_vec(),
+            '/' => [(position, (-direction.1, -direction.0))].to_vec(),
+            '\\' => [(position, (direction.1, direction.0))].to_vec(),
+            '|' if direction.1 == 0 => [(position, direction)].to_vec(),
+            '|' if direction.0 == 0 => [(position, (1, 0)), (position, (-1, 0))].to_vec(),
+            '-' if direction.1 == 0 => [(position, (0, 1)), (position, (0, -1))].to_vec(),
+            '-' if direction.0 == 0 => [(position, direction)].to_vec(),
+            _ => unreachable!(),
+        }
+    }
+
     fn calculate_energized_positions_after_shot_from(
         &self,
         start_position: (usize, usize),
@@ -30,7 +47,7 @@ impl LaserGrid {
     ) -> HashSet<((usize, usize), (isize, isize))> {
         let mut visited_positions = HashSet::with_capacity(15000);
         let mut stack = Vec::with_capacity(128);
-        stack.push((start_position, start_direction));
+        stack.extend(self.get_next_step(start_position, start_direction));
 
         while let Some((current_position, direction)) = stack.pop() {
             if !visited_positions.insert((current_position, direction)) {
@@ -51,22 +68,7 @@ impl LaserGrid {
                 _ => continue,
             };
 
-            match self.grid[new_position.0][new_position.1] {
-                '.' => stack.push((new_position, direction)),
-                '/' => stack.push((new_position, (-direction.1, -direction.0))),
-                '\\' => stack.push((new_position, (direction.1, direction.0))),
-                '|' if direction.1 == 0 => stack.push((new_position, direction)),
-                '|' if direction.0 == 0 => {
-                    stack.push((new_position, (1, 0)));
-                    stack.push((new_position, (-1, 0)));
-                }
-                '-' if direction.1 == 0 => {
-                    stack.push((new_position, (0, 1)));
-                    stack.push((new_position, (0, -1)));
-                }
-                '-' if direction.0 == 0 => stack.push((new_position, direction)),
-                _ => unreachable!(),
-            }
+            stack.extend(self.get_next_step(new_position, direction));
         }
 
         visited_positions
@@ -134,6 +136,14 @@ mod tests {
     }
 
     #[test]
+    fn part1_wj() {
+        let input = read_input(DAY, InputType::Other("wj".to_owned())).unwrap();
+        let expected = 7632;
+        let result = part1(&input);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn part2_test() {
         let input = read_input(DAY, InputType::Test).unwrap();
         let expected = 51;
@@ -145,6 +155,14 @@ mod tests {
     fn part2_real() {
         let input = read_input(DAY, InputType::Real).unwrap();
         let expected = 8246;
+        let result = part2(&input);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn part2_wj() {
+        let input = read_input(DAY, InputType::Other("wj".to_owned())).unwrap();
+        let expected = 8023;
         let result = part2(&input);
         assert_eq!(result, expected);
     }
