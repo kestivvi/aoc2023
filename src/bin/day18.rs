@@ -5,6 +5,7 @@ use std::{
 
 use aoc2023::{read_input, InputType};
 use itertools::Itertools;
+use rayon::prelude::*;
 use timed::timed;
 
 const DAY: u8 = 18;
@@ -19,7 +20,7 @@ fn main() {
 type Coords = (usize, usize);
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
-struct Point((isize, isize));
+struct Point((i128, i128));
 
 impl Add for Point {
     type Output = Point;
@@ -29,6 +30,7 @@ impl Add for Point {
     }
 }
 
+#[derive(Debug)]
 enum Direction {
     Up,
     Right,
@@ -71,6 +73,7 @@ impl From<u8> for Direction {
     }
 }
 
+#[derive(Debug)]
 struct Instruction {
     direction: Direction,
     amount: usize,
@@ -108,7 +111,7 @@ fn parse_input_part2(input: &str) -> Vec<Instruction> {
                 .chars()
                 .collect_vec();
 
-            let amount_hex_str = (&hex[0..4]).iter().collect::<String>();
+            let amount_hex_str = (&hex[0..=4]).iter().collect::<String>();
             let direction_char = &hex[5];
 
             let amount = usize::from_str_radix(&amount_hex_str, 16).unwrap();
@@ -134,65 +137,93 @@ fn dig_edge(instructions: &[Instruction]) -> HashSet<Point> {
     trench_coords
 }
 
-fn get_bounds(trench: &HashSet<Point>) -> (isize, isize, isize, isize) {
-    let mut y_lower_bound: isize = 0;
-    let mut y_upper_bound: isize = 0;
-    let mut x_lower_bound: isize = 0;
-    let mut x_upper_bound: isize = 0;
+fn dig_edge_and_calculate_interior(instructions: &[Instruction]) -> u128 {
+    let mut area: i128 = 0;
+    let mut perimeter: i128 = 0;
 
-    for point in trench {
-        let (y, x) = point.0;
-        y_lower_bound = y_lower_bound.min(y);
-        y_upper_bound = y_upper_bound.max(y);
-        x_lower_bound = x_lower_bound.min(x);
-        x_upper_bound = x_upper_bound.max(x);
-    }
+    let mut current_position = Point((0, 0));
 
-    (y_lower_bound, y_upper_bound, x_lower_bound, x_upper_bound)
-}
+    instructions.iter().for_each(|instruction| {
+        for _ in 0..instruction.amount {
+            let new_position = current_position + instruction.direction.to_vector();
+            area += ((current_position.0 .0) * (new_position.0 .1)) as i128;
+            area -= ((new_position.0 .0) * (current_position.0 .1)) as i128;
+            perimeter += (current_position.0 .0 - new_position.0 .0).abs() as i128;
+            perimeter += (current_position.0 .1 - new_position.0 .1).abs() as i128;
 
-fn count_interior_with_edge(trench: &HashSet<Point>) -> usize {
-    dbg!("trench size", trench.len());
-    let (y_lower_bound, y_upper_bound, x_lower_bound, x_upper_bound) = get_bounds(trench);
-    dbg!("found bounds");
-
-    let mut inside = false;
-    let mut counter = 0;
-
-    for y in y_lower_bound..=y_upper_bound {
-        for x in x_lower_bound..=x_upper_bound {
-            let current_point = Point((y, x));
-            let one_below_current_point = Point((y + 1, x));
-            if trench.contains(&current_point) && trench.contains(&one_below_current_point) {
-                inside = !inside;
-            }
-            if trench.contains(&current_point) {
-                continue;
-            }
-            if inside {
-                counter += 1;
-            }
+            current_position = new_position;
         }
-        println!("{}", (y - y_lower_bound) as f32 / y_upper_bound as f32);
-    }
+    });
 
-    counter + trench.len()
+    (area.abs() / 2 + perimeter / 2 + 1) as u128
 }
 
+// fn get_bounds(trench: &HashSet<Point>) -> (isize, isize, isize, isize) {
+//     let mut y_lower_bound: isize = 0;
+//     let mut y_upper_bound: isize = 0;
+//     let mut x_lower_bound: isize = 0;
+//     let mut x_upper_bound: isize = 0;
+
+//     for point in trench {
+//         let (y, x) = point.0;
+//         y_lower_bound = y_lower_bound.min(y);
+//         y_upper_bound = y_upper_bound.max(y);
+//         x_lower_bound = x_lower_bound.min(x);
+//         x_upper_bound = x_upper_bound.max(x);
+//     }
+
+//     (y_lower_bound, y_upper_bound, x_lower_bound, x_upper_bound)
+// }
+
+// fn count_interior_with_edge(trench: &HashSet<Point>) -> u128 {
+//     dbg!("trench size", trench.len());
+//     let (y_lower_bound, y_upper_bound, x_lower_bound, x_upper_bound) = get_bounds(trench);
+//     dbg!("found bounds");
+
+//     let counter: u128 = (y_lower_bound..=y_upper_bound)
+//         .into_par_iter()
+//         .map(|y| {
+//             let mut counter = 0;
+//             let mut inside = false;
+//             for x in x_lower_bound..=x_upper_bound {
+//                 let current_point = Point((y, x));
+//                 let one_below_current_point = Point((y + 1, x));
+//                 if trench.contains(&current_point) && trench.contains(&one_below_current_point) {
+//                     inside = !inside;
+//                 }
+//                 if trench.contains(&current_point) {
+//                     continue;
+//                 }
+//                 if inside {
+//                     counter += 1;
+//                 }
+//             }
+
+//             // let progress = (y - y_lower_bound) as f32 / (y_upper_bound - y_lower_bound) as f32;
+
+//             counter
+//         })
+//         .sum();
+
+//     counter + trench.len() as u128
+// }
+
 #[timed]
-fn part1(input: &str) -> usize {
+fn part1(input: &str) -> u128 {
     let instructions = parse_input(input);
-    let edge = dig_edge(&instructions);
-    count_interior_with_edge(&edge)
+    // let edge = dig_edge(&instructions);
+    // count_interior_with_edge(&edge)
+    dig_edge_and_calculate_interior(&instructions)
 }
 
 #[timed]
-fn part2(input: &str) -> usize {
+fn part2(input: &str) -> u128 {
     let instructions = parse_input_part2(input);
-    dbg!("Dig edge");
-    let edge = dig_edge(&instructions);
-    dbg!("Edge dog");
-    count_interior_with_edge(&edge)
+    // dbg!("Dig edge");
+    // let edge = dig_edge(&instructions);
+    // dbg!("Edge dog");
+    // count_interior_with_edge(&edge)
+    dig_edge_and_calculate_interior(&instructions)
 }
 
 #[cfg(test)]
@@ -211,9 +242,42 @@ mod tests {
     }
 
     #[test]
+    fn part1_real() {
+        let expected = 47139;
+        let result = part1(&read_input(DAY, InputType::Real).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn part2_test() {
         let expected = 952408144115;
         let result = part2(&get_test_input());
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn area_test2() {
+        fn shoelace_formula(vertices: &[(f64, f64)]) -> f64 {
+            let mut area = 0.0;
+            let mut perimeter = 0.0;
+            let n = vertices.len();
+
+            for i in 0..n {
+                let j = (i + 1) % n;
+                area += (vertices[i].0) * (vertices[j].1);
+                area -= (vertices[j].0) * (vertices[i].1);
+                perimeter +=
+                    (vertices[i].0 - vertices[j].0).abs() + (vertices[i].1 - vertices[j].1).abs();
+            }
+
+            area.abs() / 2.0 + perimeter / 2.0 + 1.0
+        }
+
+        // let polygon = vec![(1.0, 1.0), (1.0, 4.0), (5.0, 4.0), (5.0, 1.0)];
+        let vertices = vec![(1.0, 1.0), (5.0, 4.0), (1.0, 4.0), (5.0, 1.0)];
+        // How to order vertices clockwise?
+
+        let area = shoelace_formula(&vertices);
+        println!("{}", area);
     }
 }
