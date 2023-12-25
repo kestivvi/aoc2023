@@ -17,6 +17,7 @@ strum_macros = "0.25"
 num = "0.4.1"
 memoize = "0.4.1"
 cached = "0.46.1"
+mathru = "0.15.3"
 
 [profile.release]
 strip = true
